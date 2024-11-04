@@ -5,15 +5,19 @@ import com.microservices.ecommerce.order_service.dto.InventoryRequest;
 import com.microservices.ecommerce.order_service.dto.InventoryResponse;
 import com.microservices.ecommerce.order_service.dto.OrderLineItemsDto;
 import com.microservices.ecommerce.order_service.dto.OrderRequest;
+import com.microservices.ecommerce.order_service.event.OrderPlacedEvent;
 import com.microservices.ecommerce.order_service.model.Order;
 import com.microservices.ecommerce.order_service.model.OrderLineItems;
 import com.microservices.ecommerce.order_service.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -21,6 +25,12 @@ public class OrderService {
     private final OrderRepository orderRepository;
 
     private final InventoryClient inventoryClient;
+
+    // Key ==> Name of the topic which we are going to send messages
+    // value ==> The value which we are sending
+    // in this example we key is a string (order-placed) and value is
+    //the object of OrderPlacedEvent
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
     public void placeOrder(OrderRequest orderRequest){
         Order order = new Order();
@@ -47,9 +57,16 @@ public class OrderService {
         }
         boolean allProductsInStock = inventoryResponses.stream().
                 allMatch(inventoryResponse -> inventoryResponse.isInStock());
-
+        System.out.println("all product in stock:"+ allProductsInStock);
         if(allProductsInStock) {
             orderRepository.save(order);
+
+            // send the message to the kafka topic
+            OrderPlacedEvent orderPlacedEvent = new OrderPlacedEvent(order.getOrderNumber(), "priyabrotasenpapon94@gmail.com");
+            log.info("Start - Sending OrderPlacedEvent {} to kafka topic order-placed", orderPlacedEvent);
+            kafkaTemplate.send("order-placed", orderPlacedEvent);
+            log.info("End - Sending OrderPlacedEvent {} to kafka topic order-placed", orderPlacedEvent);
+
         } else {
             throw new RuntimeException("Product is not in stock. Try again later");
         }

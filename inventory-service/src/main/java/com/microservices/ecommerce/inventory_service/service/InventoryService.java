@@ -38,6 +38,7 @@ public class InventoryService {
 //    }
 
     public List<InventoryResponse> isInStock(List<InventoryRequest> inventoryRequests){
+        System.out.println("check");
         Map<String, Integer> inventoryMap = inventoryRequests.stream()
                 .collect(Collectors.toMap(inventoryRequest -> inventoryRequest.skuCode(),
                         inventoryRequest -> inventoryRequest.quantity()));
